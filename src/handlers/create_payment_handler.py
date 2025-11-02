@@ -4,6 +4,7 @@ SPDX - License - Identifier: LGPL - 3.0 - or -later
 Auteurs : Gabriel C. Ullmann, Fabio Petrillo, 2025
 """
 import requests
+import config
 from logger import Logger
 from handlers.handler import Handler
 from order_saga_state import OrderSagaState
@@ -21,22 +22,38 @@ class CreatePaymentHandler(Handler):
     def run(self):
         """Call payment microservice to generate payment transaction"""
         try:
-            # TODO: effectuer une requête à /orders pour obtenir le total_amount de la commande (que sera utilisé pour démander la transaction de paiement)
             """
             GET my-api-gateway-address/order/{id} ...
             """
+            get_order_resp = {}
+            response = requests.get(f'{config.API_GATEWAY_URL}/store-manager-api/orders/{self.order_id}')
+            if response.ok:
+                self.logger.debug("La récupération de la commande a réussi")
+                get_order_resp = response.json()
+                self.logger.debug(f"received order : {get_order_resp}")
+            else:
+                get_order_resp = response.json() 
+                self.logger.error(f"Erreur {response.status_code} : {get_order_resp}")
+                return OrderSagaState.INCREASING_STOCK
 
-            # TODO: effectuer une requête à /payments pour créer une transaction de paiement
             """
             POST my-api-gateway-address/payments ...
             json={ voir collection Postman pour en savoir plus ... }
             """
-            response_ok = True
-            if response_ok:
+            create_payment_req = {
+                "user_id": self.order_data["user_id"],
+                "order_id": self.order_id,
+                "total_amount": get_order_resp["total_amount"]
+            }
+            response = requests.post(f'{config.API_GATEWAY_URL}/payments-api/payments',
+                json=create_payment_req,
+                headers={'Content-Type': 'application/json'}
+            )
+            if response.ok:
                 self.logger.debug("La création d'une transaction de paiement a réussi")
                 return OrderSagaState.COMPLETED
             else:
-                self.logger.error(f"Erreur : {response_ok}")
+                self.logger.error(f"Erreur : {response.ok}")
                 return OrderSagaState.INCREASING_STOCK
 
         except Exception as e:

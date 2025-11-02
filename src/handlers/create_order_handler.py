@@ -45,9 +45,8 @@ class CreateOrderHandler(Handler):
         try:
             # ATTENTION: Si vous exécutez ce code dans Docker, n'utilisez pas localhost. Utilisez plutôt le hostname de votre API Gateway
             response = requests.delete(f'{config.API_GATEWAY_URL}/store-manager-api/orders/{self.order_id}')
+            self.logger.debug(f"Received response from delete order : {response} | {response.ok}")
             if response.ok:
-                data = response.json() 
-                self.order_id = data['order_id'] if data else 0
                 self.logger.debug("La supression de la commande a réussi")
                 return OrderSagaState.COMPLETED
             else:

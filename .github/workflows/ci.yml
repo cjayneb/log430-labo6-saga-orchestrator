@@ -61,12 +61,6 @@ jobs:
           echo "FLASK_PORT=5123" >> .env
           cat .env
 
-      - name: Create Docker network
-        run: |
-          docker compose down -v || true
-          docker network rm labo05-network || true
-          docker network create labo05-network
-
       - name: Deploy app
         run: |
           docker compose up -d --build

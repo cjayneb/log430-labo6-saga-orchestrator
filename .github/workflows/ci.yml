@@ -1,0 +1,66 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Creer fichier .env
+        run: |
+          echo "API_GATEWAY_URL=http://api-gateway:8080" >> .env
+          echo "FLASK_PORT=5123" >> .env
+          cat .env
+
+      - name: Run tests
+        working-directory: ./src
+        run: python -m pytest
+
+  deploy:
+    runs-on: self-hosted
+    needs: test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Fix permissions before checkout
+        run: |
+          sudo rm -rf "$GITHUB_WORKSPACE"/*
+
+      - name: Docker image prune
+        if: always()
+        run: docker system prune -a --volumes -f
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Creer fichier .env
+        run: |
+          echo "API_GATEWAY_URL=http://api-gateway:8080" >> .env
+          echo "FLASK_PORT=5123" >> .env
+          cat .env
+
+      - name: Create Docker network
+        run: |
+          docker compose down -v || true
+          docker network rm labo05-network || true
+          docker network create labo05-network
+
+      - name: Deploy app
+        run: |
+          docker compose up -d --build
